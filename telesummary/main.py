@@ -26,12 +26,17 @@ def action_summary(action_args):
     parser = argparse.ArgumentParser()
     parser.add_argument("chat_id", nargs=1)
     parser.add_argument('--limit', type=int, default=500)
+    parser.add_argument('--from-me', action='store_true')
+    parser.add_argument('--old-first', action='store_true')
     args = parser.parse_args(action_args)
     chat_id = int(args.chat_id[0])
 
     raw_messages = []
     with client:
-        client.loop.run_until_complete(get_messages(chat_id, args.limit, raw_messages))
+        client.loop.run_until_complete(get_messages(
+            chat_id, args.limit, raw_messages, from_me=args.from_me,
+            oldest_first=args.old_first
+        ))
     messages = []
     for msg in raw_messages:
         messages.append({
@@ -72,7 +77,8 @@ def action_list(action_args):
 
 
 async def _delete_messages(messages):
-    await client.delete_messages(None, message_ids=messages)
+    for msg in messages:
+        await msg.delete()
 
 
 def action_delete(action_args):
@@ -91,9 +97,10 @@ def action_delete(action_args):
             chat_id, args.limit, messages, oldest_first=oldest_first, from_me=True
         ))
 
+    print("Found {} of messages\n".format(len(messages)))
+
     for msg in messages:
-        print(msg.message)
-        print()
+        print("#", msg.date, msg.message)
 
     answer = input("Proceed? (answer yes): ")
     if answer.lower() != 'yes':
